@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel Administrativo - Transporte Escolar</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+
+    /* LOGIN */
+    .login-screen {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; background: linear-gradient(135deg, #1a3a5c, #2d6a9f);
+    }
+    .login-card {
+      background: #fff; padding: 40px; border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3); width: 100%; max-width: 400px;
+    }
+    .login-card .logo { width: 160px; display: block; margin: 0 auto 20px; }
+    .login-card h2 { text-align: center; margin-bottom: 24px; color: #1a3a5c; }
+    .login-card input {
+      width: 100%; padding: 12px; margin-bottom: 12px;
+      border: 1px solid #ccc; border-radius: 6px; font-size: 15px;
+    }
+    .login-card button {
+      width: 100%; padding: 12px; background: #1a3a5c; color: #fff;
+      border: none; border-radius: 6px; font-size: 16px; cursor: pointer;
+    }
+    .login-card button:hover { background: #2d6a9f; }
+    .login-error { color: #e74c3c; text-align: center; margin-top: 10px; font-size: 14px; }
+    .login-card p { text-align: center; margin-top: 16px; font-size: 14px; }
+    .login-card a { color: #2d6a9f; cursor: pointer; text-decoration: underline; }
+
+    /* LAYOUT ADMIN */
+    .admin-screen { display: none; }
+    .topbar {
+      background: #1a3a5c; color: #fff; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; position: sticky; top: 0; z-index: 100;
+    }
+    .topbar h1 { font-size: 18px; }
+    .topbar .user-info { display: flex; align-items: center; gap: 16px; }
+    .topbar .user-info span { font-size: 14px; }
+    .topbar button {
+      background: rgba(255,255,255,0.15); color: #fff;
+      border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+    }
+    .topbar button:hover { background: rgba(255,255,255,0.25); }
+
+    .content { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+    /* CARDS ESTATÍSTICAS */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #fff; padding: 20px; border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .stat-card .num { font-size: 32px; font-weight: 700; color: #1a3a5c; }
+    .stat-card .label { font-size: 14px; color: #666; margin-top: 4px; }
+
+    /* FILTROS */
+    .filters {
+      background: #fff; padding: 16px 20px; border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+    }
+    .filters label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
+    .filters select, .filters input {
+      padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    }
+    .filters button {
+      background: #1a3a5c; color: #fff; border: none;
+      padding: 9px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .filters button:hover { background: #2d6a9f; }
+    .filters .btn-pdf {
+      background: #e74c3c;
+    }
+    .filters .btn-pdf:hover { background: #c0392b; }
+    .filters .btn-reset {
+      background: #95a5a6;
+    }
+    .filters .btn-reset:hover { background: #7f8c8d; }
+
+    /* TABELA */
+    .table-wrapper {
+      background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead { background: #1a3a5c; color: #fff; }
+    th { padding: 12px 14px; text-align: left; font-weight: 600; white-space: nowrap; }
+    td { padding: 10px 14px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 12px;
+      font-size: 12px; font-weight: 600;
+    }
+    .badge-escola { background: #e8f0fe; color: #1a3a5c; }
+    .badge-rota { background: #fef3e2; color: #e67e22; }
+
+    .loading { text-align: center; padding: 60px; color: #999; font-size: 16px; }
+    .empty { text-align: center; padding: 60px; color: #999; font-size: 16px; }
+
+    .btn-delete {
+      background: none; border: none; color: #e74c3c;
+      cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px;
+    }
+    .btn-delete:hover { background: #fde8e8; }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 200; justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 32px;
+      max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal h3 { margin-bottom: 12px; }
+    .modal p { margin-bottom: 20px; color: #666; }
+    .modal-btns { display: flex; gap: 12px; justify-content: flex-end; }
+    .modal-btns button {
+      padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer;
+    }
+    .modal-btns .btn-cancel { background: #95a5a6; color: #fff; }
+    .modal-btns .btn-confirm { background: #e74c3c; color: #fff; }
+
+    .hidden { display: none; }
+
+    @media (max-width: 768px) {
+      .content { padding: 12px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .topbar h1 { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== TELA DE LOGIN ===== -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <img src="logo.png" class="logo" onerror="this.style.display='none'">
+      <h2>Painel Administrativo</h2>
+      <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="email">
+      <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+      <button onclick="login()">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+      <p><a onclick="showRegister()">Criar nova conta</a></p>
+    </div>
+  </div>
+
+  <!-- ===== TELA DE REGISTRO ===== -->
+  <div class="login-screen hidden" id="registerScreen">
+    <div class="login-card">
+      <img src="logo.png" class="logo" onerror="this.style.display='none'">
+      <h2>Criar Conta</h2>
+      <input type="email" id="regEmail" placeholder="E-mail">
+      <input type="password" id="regPassword" placeholder="Senha (mín. 6 caracteres)">
+      <button onclick="register()">Criar Conta</button>
+      <div class="login-error" id="regError"></div>
+      <p><a onclick="showLogin()">Já tenho conta</a></p>
+    </div>
+  </div>
+
+  <!-- ===== TELA ADMIN ===== -->
+  <div class="admin-screen" id="adminScreen">
+    <div class="topbar">
+      <h1>Painel de Controle - Transporte Escolar</h1>
+      <div class="user-info">
+        <span id="userEmail"></span>
+        <button onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ESTATÍSTICAS -->
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <!-- FILTROS -->
+      <div class="filters">
+        <div>
+          <label>Escola</label>
+          <select id="filterEscola">
+            <option value="">Todas</option>
+            <option>E.E ARTUR ANTUNES MACIEL</option>
+            <option>CEM Dr. GUILHERME</option>
+            <option>CEM PROFESSOR ORLANDO PEREIRA</option>
+            <option>EMR OSVALDO CRUZ</option>
+            <option>EMR EUCLIDES DA CUNHA</option>
+            <option>EMR VINICIOS DE MORAIS</option>
+            <option>EE. ANTONIO FRANCISCO LISBOA</option>
+            <option>ANEXA RIO PRETO</option>
+            <option>ALVARES DE AZEVEDO</option>
+            <option>CORA CORALINA</option>
+            <option>IFMT</option>
+          </select>
+        </div>
+        <div>
+          <label>Rota</label>
+          <select id="filterRota">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div>
+          <label>Data início</label>
+          <input type="date" id="filterDateStart">
+        </div>
+        <div>
+          <label>Data fim</label>
+          <input type="date" id="filterDateEnd">
+        </div>
+        <div>
+          <label>Busca</label>
+          <input type="text" id="filterSearch" placeholder="Aluno / Responsável" style="width:200px">
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <button onclick="applyFilters()">Filtrar</button>
+          <button class="btn-reset" onclick="resetFilters()">Limpar</button>
+          <button class="btn-pdf" onclick="exportPDF()">Exportar PDF</button>
+        </div>
+      </div>
+
+      <!-- TABELA -->
+      <div class="table-wrapper">
+        <div class="loading" id="loadingMsg">Carregando dados...</div>
+        <div class="empty hidden" id="emptyMsg">Nenhum registro encontrado.</div>
+        <table class="hidden" id="dataTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Data</th>
+              <th>Responsável</th>
+              <th>Fazenda / Sítio</th>
+              <th>Aluno</th>
+              <th>Escola</th>
+              <th>Ano</th>
+              <th>Rota</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <p style="text-align:center;margin-top:16px;color:#999;font-size:13px;">
+        Total de registros: <strong id="totalCount">0</strong>
+      </p>
+
+    </div>
+  </div>
+
+  <!-- ===== MODAL CONFIRMAR EXCLUSÃO ===== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h3>Confirmar Exclusão</h3>
+      <p id="modalText">Tem certeza que deseja excluir este registro?</p>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button class="btn-confirm" id="modalConfirmBtn">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===========================
+    // CONFIG SUPABASE
+    // ===========================
+    const SUPABASE_URL = 'https://hqefobmvtojrwyoqgzak.supabase.co'
+    const SUPABASE_KEY = 'sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ'
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    let allData = []
+    let deleteTargetId = null
+
+    // ===========================
+    // AUTENTICAÇÃO
+    // ===========================
+    async function login() {
+      const email = document.getElementById('loginEmail').value
+      const password = document.getElementById('loginPassword').value
+      const errorEl = document.getElementById('loginError')
+      errorEl.textContent = ''
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        errorEl.textContent = error.message
+        return
+      }
+      showAdmin()
+    }
+
+    function showRegister() {
+      document.getElementById('loginScreen').classList.add('hidden')
+      document.getElementById('registerScreen').classList.remove('hidden')
+    }
+
+    function showLogin() {
+      document.getElementById('registerScreen').classList.add('hidden')
+      document.getElementById('loginScreen').classList.remove('hidden')
+    }
+
+    async function register() {
+      const email = document.getElementById('regEmail').value
+      const password = document.getElementById('regPassword').value
+      const errorEl = document.getElementById('regError')
+      errorEl.textContent = ''
+
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        errorEl.textContent = error.message
+        return
+      }
+      alert('Conta criada! Verifique seu e-mail para confirmar.')
+      showLogin()
+    }
+
+    async function logout() {
+      await supabase.auth.signOut()
+      document.getElementById('adminScreen').style.display = 'none'
+      document.getElementById('loginScreen').classList.remove('hidden')
+    }
+
+    // ===========================
+    // GERENCIAR SESSÃO
+    // ===========================
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        showAdmin()
+      }
+    }
+
+    async function showAdmin() {
+      document.getElementById('loginScreen').classList.add('hidden')
+      document.getElementById('registerScreen').classList.add('hidden')
+      document.getElementById('adminScreen').style.display = 'block'
+      const { data: { user } } = await supabase.auth.getUser()
+      document.getElementById('userEmail').textContent = user?.email || ''
+      loadData()
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') showAdmin()
+      if (event === 'SIGNED_OUT') {
+        document.getElementById('adminScreen').style.display = 'none'
+        document.getElementById('loginScreen').classList.remove('hidden')
+      }
+    })
+
+    checkSession()
+
+    // ===========================
+       // CARREGAR DADOS
+    // ===========================
+    async function loadData() {
+      showEl('loadingMsg')
+      hideEl('emptyMsg')
+      hideEl('dataTable')
+
+      const { data, error } = await supabase
+        .from('cadastro_transporte')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      hideEl('loadingMsg')
+
+      if (error) {
+        alert('Erro ao carregar dados: ' + error.message)
+        return
+      }
+
+      allData = data || []
+      populateRouteFilter(allData)
+      renderTable(allData)
+    }
+
+    function populateRouteFilter(data) {
+      const sel = document.getElementById('filterRota')
+      const currentVal = sel.value
+      sel.innerHTML = '<option value="">Todas</option>'
+      const rotas = [...new Set(data.map(d => d.rota).filter(Boolean))].sort()
+      rotas.forEach(r => {
+        const opt = document.createElement('option')
+        opt.value = r
+        opt.textContent = r
+        sel.appendChild(opt)
+      })
+      sel.value = currentVal
+    }
+
+    // ===========================
+    // FILTROS
+    // ===========================
+    function applyFilters() {
+      const escola = document.getElementById('filterEscola').value
+      const rota = document.getElementById('filterRota').value
+      const start = document.getElementById('filterDateStart').value
+      const end = document.getElementById('filterDateEnd').value
+      const search = document.getElementById('filterSearch').value.toLowerCase()
+
+      let filtered = allData
+
+      if (escola) filtered = filtered.filter(d => d.escola === escola)
+      if (rota) filtered = filtered.filter(d => d.rota === rota)
+      if (start) filtered = filtered.filter(d => new Date(d.created_at) >= new Date(start + 'T00:00:00'))
+      if (end) filtered = filtered.filter(d => new Date(d.created_at) <= new Date(end + 'T23:59:59'))
+      if (search) filtered = filtered.filter(d =>
+        (d.aluno && d.aluno.toLowerCase().includes(search)) ||
+        (d.responsavel && d.responsavel.toLowerCase().includes(search))
+      )
+
+      renderTable(filtered)
+    }
+
+    function resetFilters() {
+      document.getElementById('filterEscola').value = ''
+      document.getElementById('filterRota').value = ''
+      document.getElementById('filterDateStart').value = ''
+      document.getElementById('filterDateEnd').value = ''
+      document.getElementById('filterSearch').value = ''
+      renderTable(allData)
+    }
+
+    // ===========================
+    // RENDER TABELA
+    // ===========================
+    function renderTable(data) {
+      const tbody = document.getElementById('tableBody')
+      tbody.innerHTML = ''
+
+      if (data.length === 0) {
+        showEl('emptyMsg')
+        hideEl('dataTable')
+        renderStats([])
+        document.getElementById('totalCount').textContent = '0'
+        return
+      }
+
+      hideEl('emptyMsg')
+      showEl('dataTable')
+
+      data.forEach((d, i) => {
+        const tr = document.createElement('tr')
+        const date = d.created_at ? new Date(d.created_at).toLocaleDateString('pt-BR') : '-'
+        tr.innerHTML = `
+          <td>${d.id}</td>
+          <td>${date}</td>
+          <td>${esc(d.responsavel)}</td>
+          <td>${esc(d.endereco)}</td>
+          <td><strong>${esc(d.aluno)}</strong></td>
+          <td><span class="badge badge-escola">${esc(d.escola)}</span></td>
+          <td>${esc(d.ano)}</td>
+          <td><span class="badge badge-rota">${esc(d.rota)}</span></td>
+          <td style="font-size:12px">${d.latitude || '-'}</td>
+          <td style="font-size:12px">${d.longitude || '-'}</td>
+          <td><button class="btn-delete" onclick="confirmDelete(${d.id})" title="Excluir">&times;</button></td>
+        `
+        tbody.appendChild(tr)
+      })
+
+      renderStats(data)
+      document.getElementById('totalCount').textContent = data.length
+    }
+
+    function renderStats(data) {
+      const escolas = new Set(data.map(d => d.escola))
+      const rotas = new Set(data.map(d => d.rota))
+      const alunos = new Set(data.map(d => d.aluno))
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="num">${data.length}</div>
+          <div class="label">Total de Registros</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">${alunos.size}</div>
+          <div class="label">Alunos</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">${escolas.size}</div>
+          <div class="label">Escolas</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">${rotas.size}</div>
+          <div class="label">Rotas</div>
+        </div>
+      `
+    }
+
+    // ===========================
+    // EXCLUSÃO
+    // ===========================
+    function confirmDelete(id) {
+      deleteTargetId = id
+      document.getElementById('modalText').textContent =
+        `Tem certeza que deseja excluir o registro #${id}?`
+      document.getElementById('modalOverlay').classList.add('active')
+      document.getElementById('modalConfirmBtn').onclick = executeDelete
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active')
+      deleteTargetId = null
+    }
+
+    async function executeDelete() {
+      if (!deleteTargetId) return
+      const { error } = await supabase
+        .from('cadastro_transporte')
+        .delete()
+        .eq('id', deleteTargetId)
+
+      closeModal()
+      if (error) {
+        alert('Erro ao excluir: ' + error.message)
+      } else {
+        loadData()
+      }
+    }
+
+    // ===========================
+    // EXPORTAR PDF
+    // ===========================
+    function exportPDF() {
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF('landscape', 'mm', 'a4')
+
+      // Obter dados filtrados atualmente
+      const escola = document.getElementById('filterEscola').value
+      const rota = document.getElementById('filterRota').value
+      const start = document.getElementById('filterDateStart').value
+      const end = document.getElementById('filterDateEnd').value
+
+      let filtered = allData
+      if (escola) filtered = filtered.filter(d => d.escola === escola)
+      if (rota) filtered = filtered.filter(d => d.rota === rota)
+      if (start) filtered = filtered.filter(d => new Date(d.created_at) >= new Date(start + 'T00:00:00'))
+      if (end) filtered = filtered.filter(d => new Date(d.created_at) <= new Date(end + 'T23:59:59'))
+
+      if (filtered.length === 0) {
+        alert('Nenhum dado para exportar.')
+        return
+      }
+
+      // Cabeçalho
+      doc.setFontSize(18)
+      doc.setTextColor(26, 58, 92)
+      doc.text('Relatório - Transporte Escolar', 14, 20)
+
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      const now = new Date().toLocaleString('pt-BR')
+      doc.text(`Gerado em: ${now}`, 14, 28)
+
+      if (escola || rota || start || end) {
+        let filtros = []
+        if (escola) filtros.push(`Escola: ${escola}`)
+        if (rota) filtros.push(`Rota: ${rota}`)
+        if (start) filtros.push(`De: ${start}`)
+        if (end) filtros.push(`Até: ${end}`)
+        doc.text(`Filtros: ${filtros.join(' | ')}`, 14, 34)
+      }
+
+      // Tabela
+      const columns = [
+        '#', 'Data', 'Responsável', 'Fazenda/Sítio', 'Aluno',
+        'Escola', 'Ano', 'Rota', 'Latitude', 'Longitude'
+      ]
+      const rows = filtered.map(d => [
+        d.id,
+        d.created_at ? new Date(d.created_at).toLocaleDateString('pt-BR') : '-',
+        d.responsavel || '-',
+        d.endereco || '-',
+        d.aluno || '-',
+        d.escola || '-',
+        d.ano || '-',
+        d.rota || '-',
+        d.latitude ? d.latitude.toString() : '-',
+        d.longitude ? d.longitude.toString() : '-'
+      ])
+
+      doc.autoTable({
+        head: [columns],
+        body: rows,
+        startY: 40,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: {
+          fillColor: [26, 58, 92],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: { fillColor: [240, 242, 248] },
+        didParseCell: function (data) {
+          if (data.section === 'head') {
+            data.cell.styles.halign = 'center'
+          }
+        }
+      })
+
+      // Rodapé com resumo
+      const finalY = doc.lastAutoTable.finalY + 10
+      const escolas = new Set(filtered.map(d => d.escola)).size
+      const alunos = new Set(filtered.map(d => d.aluno)).size
+      const rotas = new Set(filtered.map(d => d.rota)).size
+
+      doc.setFontSize(10)
+      doc.setTextColor(26, 58, 92)
+      doc.text(`Total: ${filtered.length} registros | ${alunos} alunos | ${escolas} escolas | ${rotas} rotas`, 14, finalY)
+
+      // Salvar
+      const filename = `relatorio-transporte-${new Date().toISOString().slice(0, 10)}.pdf`
+      doc.save(filename)
+    }
+
+    // ===========================
+    // UTILITÁRIOS
+    // ===========================
+    function esc(str) {
+      if (!str) return '-'
+      const div = document.createElement('div')
+      div.textContent = str
+      return div.innerHTML
+    }
+
+    function showEl(id) {
+      document.getElementById(id).classList.remove('hidden')
+    }
+
+    function hideEl(id) {
+      document.getElementById(id).classList.add('hidden')
+    }
+
+    // Fechar modal clicando fora
+    document.getElementById('modalOverlay').addEventListener('click', function (e) {
+      if (e.target === this) closeModal()
+    })
+
+    // Enter para login
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        if (!document.getElementById('loginScreen').classList.contains('hidden') &&
+            !document.getElementById('registerScreen').classList.contains('hidden')) {
+          login()
+        }
+      }
+    })
+  </script>
+</body>
+</html>
