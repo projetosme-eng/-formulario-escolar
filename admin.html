@@ -465,8 +465,16 @@
           <td><span class="badge badge-escola">${esc(d.escola)}</span></td>
           <td>${esc(d.ano)}</td>
           <td><span class="badge badge-rota">${esc(d.rota)}</span></td>
-          <td style="font-size:12px">${d.latitude || '-'}</td>
-          <td style="font-size:12px">${d.longitude || '-'}</td>
+          <td style="font-size:12px">
+            ${d.latitude
+              ? `<a href="https://www.google.com/maps?q=${d.latitude},${d.longitude}" target="_blank" style="color:#2d6a9f;text-decoration:none">${d.latitude}</a>`
+              : '-'}
+          </td>
+          <td style="font-size:12px">
+            ${d.longitude
+              ? `<a href="https://www.google.com/maps?q=${d.latitude},${d.longitude}" target="_blank" style="color:#2d6a9f;text-decoration:none">${d.longitude}</a>`
+              : '-'}
+          </td>
           <td><button class="btn-delete" onclick="confirmDelete(${d.id})" title="Excluir">&times;</button></td>
         `
         tbody.appendChild(tr)
