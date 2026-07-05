@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Cadastro Transporte Escolar</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#eef3ff;display:flex;justify-content:center;min-height:100vh;padding:0}
@@ -139,7 +139,7 @@ button:active{opacity:.8}
   </select>
 </div>
 
-<button class="btn-gps" id="btnGps">Capturar Localizacao</button>
+<button class="btn-gps" id="btnGps" onclick="capturar()">Capturar Localizacao</button>
 
 <div class="box-gps" id="boxGps">
   <span class="coord-label">Latitude:</span>
@@ -149,8 +149,8 @@ button:active{opacity:.8}
   <span id="mapLinkContainer"></span>
 </div>
 
-<button class="btn-enviar" id="btnEnviar">Enviar Registro</button>
-<button class="limpar" id="btnLimpar">Limpar formulário</button>
+<button class="btn-enviar" id="btnEnviar" onclick="enviar()">Enviar Registro</button>
+<button class="limpar" id="btnLimpar" onclick="limparForm()">Limpar formulario</button>
 
 <div class="msg" id="msg"></div>
 
@@ -159,16 +159,9 @@ button:active{opacity:.8}
 <script>
 var SUPABASE_URL = "https://hqefobmvtojrwyoqgzak.supabase.co"
 var SUPABASE_KEY = "sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ"
-var supabase = null
 var latitude = null
 var longitude = null
 var capturando = false
-
-try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-} catch(e) {
-  console.error('Erro ao conectar Supabase:', e)
-}
 
 function capturar() {
   if (capturando) return
@@ -240,12 +233,7 @@ function capturar() {
   )
 }
 
-async function enviar() {
-  if (!supabase) {
-    mostrarMsg('Erro: Supabase nao conectado. Recarregue a pagina.', 'erro')
-    return
-  }
-
+function enviar() {
   var responsavel = document.getElementById('responsavel').value.trim()
   var endereco = document.getElementById('endereco').value.trim()
   var aluno = document.getElementById('aluno').value.trim()
@@ -267,23 +255,41 @@ async function enviar() {
   btn.disabled = true
   btn.textContent = 'Enviando...'
 
-  try {
-    var result = await supabase
-      .from('cadastro_transporte')
-      .insert([{ responsavel: responsavel, endereco: endereco, aluno: aluno, escola: escola, ano: ano, rota: rota, latitude: latitude, longitude: longitude }])
-
-    if (result.error) {
-      mostrarMsg('Erro ao enviar: ' + result.error.message, 'erro')
-    } else {
-      mostrarMsg('Registro enviado com sucesso!', 'sucesso')
-      limparForm()
+  fetch(SUPABASE_URL + '/rest/v1/cadastro_transporte', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify([{
+      responsavel: responsavel,
+      endereco: endereco,
+      aluno: aluno,
+      escola: escola,
+      ano: ano,
+      rota: rota,
+      latitude: latitude,
+      longitude: longitude
+    }])
+  })
+  .then(function(r) {
+    if (!r.ok) {
+      return r.json().then(function(d) {
+        throw new Error(d.message || d.error || 'Erro ' + r.status)
+      })
     }
-  } catch(e) {
-    mostrarMsg('Erro de conexao: ' + e.message, 'erro')
-  }
-
-  btn.disabled = false
-  btn.textContent = 'Enviar Registro'
+    mostrarMsg('Registro enviado com sucesso!', 'sucesso')
+    limparForm()
+  })
+  .catch(function(e) {
+    mostrarMsg('Erro: ' + e.message, 'erro')
+  })
+  .finally(function() {
+    btn.disabled = false
+    btn.textContent = 'Enviar Registro'
+  })
 }
 
 function limparForm() {
@@ -312,12 +318,6 @@ function mostrarMsg(texto, tipo) {
   el.className = 'msg ' + tipo
   el.style.display = 'block'
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('btnGps').addEventListener('click', capturar)
-  document.getElementById('btnEnviar').addEventListener('click', enviar)
-  document.getElementById('btnLimpar').addEventListener('click', limparForm)
-})
 </script>
 </body>
 </html>
