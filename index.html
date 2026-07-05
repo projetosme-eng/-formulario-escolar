@@ -139,7 +139,7 @@ button:active{opacity:.8}
   </select>
 </div>
 
-<button class="btn-gps" id="btnGps" onclick="capturar()">📍 Capturar Localização</button>
+<button class="btn-gps" id="btnGps">📍 Capturar Localização</button>
 
 <div class="box-gps" id="boxGps">
   <span class="coord-label">Latitude:</span>
@@ -149,173 +149,173 @@ button:active{opacity:.8}
   <a class="map-link" id="mapLink" href="#" target="_blank" style="display:none">📍 Ver no Google Maps</a>
 </div>
 
-<button class="btn-enviar" id="btnEnviar" onclick="enviar()">Enviar Registro</button>
-<button class="limpar" onclick="limparForm()">Limpar formulário</button>
+<button class="btn-enviar" id="btnEnviar">Enviar Registro</button>
+<button class="limpar" id="btnLimpar">Limpar formulário</button>
 
 <div class="msg" id="msg"></div>
 
 </div>
 
 <script>
-(function() {
-  const SUPABASE_URL = "https://hqefobmvtojrwyoqgzak.supabase.co"
-  const SUPABASE_KEY = "sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ"
-  let supabase = null
-  let latitude = null
-  let longitude = null
-  let capturando = false
+var SUPABASE_URL = "https://hqefobmvtojrwyoqgzak.supabase.co"
+var SUPABASE_KEY = "sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ"
+var supabase = null
+var latitude = null
+var longitude = null
+var capturando = false
+
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+} catch(e) {
+  console.error('Erro ao conectar Supabase:', e)
+}
+
+function capturar() {
+  if (capturando) return
+  capturando = true
+
+  var btn = document.getElementById('btnGps')
+  var box = document.getElementById('boxGps')
+  btn.disabled = true
+  btn.textContent = 'Capturando...'
+  box.className = 'box-gps'
+  box.innerHTML = 'Obtendo localizacao...'
+
+  if (!navigator.geolocation) {
+    box.className = 'box-gps erro'
+    box.innerHTML = 'GPS nao suportado neste navegador.'
+    btn.disabled = false
+    btn.innerHTML = 'Capturar Localizacao'
+    capturando = false
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      latitude = pos.coords.latitude
+      longitude = pos.coords.longitude
+
+      document.getElementById('latDisplay').textContent = latitude
+      document.getElementById('lngDisplay').textContent = longitude
+
+      box.className = 'box-gps capturado'
+      box.innerHTML =
+        '<span class="coord-label">Latitude:</span> ' +
+        '<span class="coord-value">' + latitude + '</span><br>' +
+        '<span class="coord-label">Longitude:</span> ' +
+        '<span class="coord-value">' + longitude + '</span>' +
+        '<a class="map-link" href="https://www.google.com/maps?q=' + latitude + ',' + longitude + '" target="_blank">  Ver no Google Maps</a>'
+
+      btn.disabled = false
+      btn.innerHTML = 'Localizacao Capturada'
+      capturando = false
+    },
+    function(err) {
+      var bx = document.getElementById('boxGps')
+      bx.className = 'box-gps erro'
+      var msg = 'Erro ao capturar localizacao. '
+
+      if (err.code == err.PERMISSION_DENIED) {
+        msg += 'Permissao negada. Permita o GPS nas configuracoes do navegador.'
+      } else if (err.code == err.POSITION_UNAVAILABLE) {
+        msg += 'Sinal indisponivel. Tente em local aberto.'
+      } else if (err.code == err.TIMEOUT) {
+        msg += 'Tempo esgotado. Tente novamente.'
+      } else {
+        msg += err.message
+      }
+      bx.innerHTML = msg
+
+      btn.disabled = false
+      btn.innerHTML = 'Capturar Localizacao'
+      capturando = false
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  )
+}
+
+async function enviar() {
+  if (!supabase) {
+    mostrarMsg('Erro: Supabase nao conectado. Recarregue a pagina.', 'erro')
+    return
+  }
+
+  var responsavel = document.getElementById('responsavel').value.trim()
+  var endereco = document.getElementById('endereco').value.trim()
+  var aluno = document.getElementById('aluno').value.trim()
+  var escola = document.getElementById('escola').value
+  var ano = document.getElementById('ano').value
+  var rota = document.getElementById('rota').value
+
+  if (!responsavel || !endereco || !aluno || !escola || !ano || !rota) {
+    mostrarMsg('Preencha todos os campos obrigatorios.', 'erro')
+    return
+  }
+
+  if (latitude == null) {
+    mostrarMsg('Capture a localizacao antes de enviar.', 'erro')
+    return
+  }
+
+  var btn = document.getElementById('btnEnviar')
+  btn.disabled = true
+  btn.textContent = 'Enviando...'
 
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    var result = await supabase
+      .from('cadastro_transporte')
+      .insert([{ responsavel: responsavel, endereco: endereco, aluno: aluno, escola: escola, ano: ano, rota: rota, latitude: latitude, longitude: longitude }])
+
+    if (result.error) {
+      mostrarMsg('Erro ao enviar: ' + result.error.message, 'erro')
+    } else {
+      mostrarMsg('Registro enviado com sucesso!', 'sucesso')
+      limparForm()
+    }
   } catch(e) {
-    console.error('Erro ao conectar Supabase:', e)
+    mostrarMsg('Erro de conexao: ' + e.message, 'erro')
   }
 
-  window.capturar = function() {
-    if (capturando) return
-    capturando = true
+  btn.disabled = false
+  btn.textContent = 'Enviar Registro'
+}
 
-    var btn = document.getElementById('btnGps')
-    var box = document.getElementById('boxGps')
-    btn.disabled = true
-    btn.textContent = '⏳ Capturando...'
-    box.className = 'box-gps'
-    box.innerHTML = 'Obtendo localização...'
+function limparForm() {
+  document.getElementById('responsavel').value = ''
+  document.getElementById('endereco').value = ''
+  document.getElementById('aluno').value = ''
+  document.getElementById('escola').value = ''
+  document.getElementById('ano').value = ''
+  document.getElementById('rota').value = ''
+  latitude = null
+  longitude = null
 
-    if (!navigator.geolocation) {
-      box.className = 'box-gps erro'
-      box.innerHTML = 'GPS não suportado neste navegador. Use um dispositivo com GPS.'
-      btn.disabled = false
-      btn.innerHTML = '📍 Capturar Localização'
-      capturando = false
-      return
-    }
+  var box = document.getElementById('boxGps')
+  box.className = 'box-gps'
+  box.innerHTML =
+    '<span class="coord-label">Latitude:</span> ' +
+    '<span class="coord-value" id="latDisplay">-</span><br>' +
+    '<span class="coord-label">Longitude:</span> ' +
+    '<span class="coord-value" id="lngDisplay">-</span>'
 
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        latitude = pos.coords.latitude
-        longitude = pos.coords.longitude
+  document.getElementById('btnGps').disabled = false
+  document.getElementById('btnGps').innerHTML = 'Capturar Localizacao'
+  document.getElementById('msg').className = 'msg'
+  document.getElementById('msg').style.display = 'none'
+}
 
-        document.getElementById('latDisplay').textContent = latitude
-        document.getElementById('lngDisplay').textContent = longitude
+function mostrarMsg(texto, tipo) {
+  var el = document.getElementById('msg')
+  el.textContent = texto
+  el.className = 'msg ' + tipo
+  el.style.display = 'block'
+}
 
-        box.className = 'box-gps capturado'
-        box.innerHTML =
-          '<span class="coord-label">Latitude:</span> ' +
-          '<span class="coord-value">' + latitude + '</span><br>' +
-          '<span class="coord-label">Longitude:</span> ' +
-          '<span class="coord-value">' + longitude + '</span>' +
-          '<a class="map-link" href="https://www.google.com/maps?q=' + latitude + ',' + longitude + '" target="_blank"> 📍 Ver no Google Maps</a>'
-
-        btn.disabled = false
-        btn.innerHTML = '📍 Localização Capturada ✓'
-        capturando = false
-      },
-      function(err) {
-        var box = document.getElementById('boxGps')
-        box.className = 'box-gps erro'
-        var msg = 'Erro ao capturar localização. '
-
-        switch(err.code) {
-          case err.PERMISSION_DENIED:
-            msg += 'Permissão negada. Permita o GPS nas configurações do navegador.'
-            break
-          case err.POSITION_UNAVAILABLE:
-            msg += 'Sinal indisponível. Tente em local aberto.'
-            break
-          case err.TIMEOUT:
-            msg += 'Tempo esgotado. Tente novamente em local aberto.'
-            break
-          default:
-            msg += err.message
-        }
-        box.innerHTML = msg
-
-        btn.disabled = false
-        btn.innerHTML = '📍 Capturar Localização'
-        capturando = false
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    )
-  }
-
-  window.enviar = async function() {
-    if (!supabase) {
-      mostrarMsg('Erro: Supabase não conectado. Recarregue a página.', 'erro')
-      return
-    }
-
-    var responsavel = document.getElementById('responsavel').value.trim()
-    var endereco = document.getElementById('endereco').value.trim()
-    var aluno = document.getElementById('aluno').value.trim()
-    var escola = document.getElementById('escola').value
-    var ano = document.getElementById('ano').value
-    var rota = document.getElementById('rota').value
-
-    if (!responsavel || !endereco || !aluno || !escola || !ano || !rota) {
-      mostrarMsg('Preencha todos os campos obrigatórios.', 'erro')
-      return
-    }
-
-    if (latitude == null) {
-      mostrarMsg('Capture a localização antes de enviar.', 'erro')
-      return
-    }
-
-    var btn = document.getElementById('btnEnviar')
-    btn.disabled = true
-    btn.textContent = 'Enviando...'
-
-    try {
-      var result = await supabase
-        .from('cadastro_transporte')
-        .insert([{ responsavel, endereco, aluno, escola, ano, rota, latitude, longitude }])
-
-      if (result.error) {
-        mostrarMsg('Erro ao enviar: ' + result.error.message, 'erro')
-      } else {
-        mostrarMsg('Registro enviado com sucesso!', 'sucesso')
-        limparForm()
-      }
-    } catch(e) {
-      mostrarMsg('Erro de conexão: ' + e.message, 'erro')
-    }
-
-    btn.disabled = false
-    btn.textContent = 'Enviar Registro'
-  }
-
-  window.limparForm = function() {
-    document.getElementById('responsavel').value = ''
-    document.getElementById('endereco').value = ''
-    document.getElementById('aluno').value = ''
-    document.getElementById('escola').value = ''
-    document.getElementById('ano').value = ''
-    document.getElementById('rota').value = ''
-    latitude = null
-    longitude = null
-
-    var box = document.getElementById('boxGps')
-    box.className = 'box-gps'
-    box.innerHTML =
-      '<span class="coord-label">Latitude:</span> ' +
-      '<span class="coord-value" id="latDisplay">-</span><br>' +
-      '<span class="coord-label">Longitude:</span> ' +
-      '<span class="coord-value" id="lngDisplay">-</span>'
-
-    document.getElementById('btnGps').disabled = false
-    document.getElementById('btnGps').innerHTML = '📍 Capturar Localização'
-    document.getElementById('msg').className = 'msg'
-    document.getElementById('msg').style.display = 'none'
-  }
-
-  function mostrarMsg(texto, tipo) {
-    var el = document.getElementById('msg')
-    el.textContent = (tipo === 'sucesso' ? '✅ ' : '⚠️ ') + texto
-    el.className = 'msg ' + tipo
-    el.style.display = 'block'
-  }
-})()
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('btnGps').addEventListener('click', capturar)
+  document.getElementById('btnEnviar').addEventListener('click', enviar)
+  document.getElementById('btnLimpar').addEventListener('click', limparForm)
+})
 </script>
 </body>
 </html>
