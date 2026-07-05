@@ -139,14 +139,14 @@ button:active{opacity:.8}
   </select>
 </div>
 
-<button class="btn-gps" id="btnGps">📍 Capturar Localização</button>
+<button class="btn-gps" id="btnGps">Capturar Localizacao</button>
 
 <div class="box-gps" id="boxGps">
   <span class="coord-label">Latitude:</span>
   <span class="coord-value" id="latDisplay">-</span><br>
   <span class="coord-label">Longitude:</span>
   <span class="coord-value" id="lngDisplay">-</span>
-  <a class="map-link" id="mapLink" href="#" target="_blank" style="display:none">📍 Ver no Google Maps</a>
+  <span id="mapLinkContainer"></span>
 </div>
 
 <button class="btn-enviar" id="btnEnviar">Enviar Registro</button>
@@ -176,16 +176,24 @@ function capturar() {
 
   var btn = document.getElementById('btnGps')
   var box = document.getElementById('boxGps')
+  var latEl = document.getElementById('latDisplay')
+  var lngEl = document.getElementById('lngDisplay')
+  var linkEl = document.getElementById('mapLinkContainer')
+
   btn.disabled = true
   btn.textContent = 'Capturando...'
   box.className = 'box-gps'
-  box.innerHTML = 'Obtendo localizacao...'
+  latEl.textContent = '...'
+  lngEl.textContent = '...'
+  linkEl.innerHTML = ''
 
   if (!navigator.geolocation) {
     box.className = 'box-gps erro'
-    box.innerHTML = 'GPS nao suportado neste navegador.'
+    latEl.textContent = '-'
+    lngEl.textContent = '-'
+    linkEl.innerHTML = 'GPS nao suportado neste navegador.'
     btn.disabled = false
-    btn.innerHTML = 'Capturar Localizacao'
+    btn.textContent = 'Capturar Localizacao'
     capturando = false
     return
   }
@@ -195,39 +203,37 @@ function capturar() {
       latitude = pos.coords.latitude
       longitude = pos.coords.longitude
 
-      document.getElementById('latDisplay').textContent = latitude
-      document.getElementById('lngDisplay').textContent = longitude
-
+      latEl.textContent = latitude
+      lngEl.textContent = longitude
       box.className = 'box-gps capturado'
-      box.innerHTML =
-        '<span class="coord-label">Latitude:</span> ' +
-        '<span class="coord-value">' + latitude + '</span><br>' +
-        '<span class="coord-label">Longitude:</span> ' +
-        '<span class="coord-value">' + longitude + '</span>' +
-        '<a class="map-link" href="https://www.google.com/maps?q=' + latitude + ',' + longitude + '" target="_blank">  Ver no Google Maps</a>'
+      linkEl.innerHTML = '<a class="map-link" href="https://www.google.com/maps?q=' + latitude + ',' + longitude + '" target="_blank">  Ver no Google Maps</a>'
 
       btn.disabled = false
-      btn.innerHTML = 'Localizacao Capturada'
+      btn.textContent = 'Localizacao Capturada'
       capturando = false
     },
     function(err) {
       var bx = document.getElementById('boxGps')
+      var lt = document.getElementById('latDisplay')
+      var ln = document.getElementById('lngDisplay')
+      var lk = document.getElementById('mapLinkContainer')
+
       bx.className = 'box-gps erro'
-      var msg = 'Erro ao capturar localizacao. '
+      lt.textContent = '-'
+      ln.textContent = '-'
 
       if (err.code == err.PERMISSION_DENIED) {
-        msg += 'Permissao negada. Permita o GPS nas configuracoes do navegador.'
+        lk.innerHTML = 'Permissao negada. Permita o GPS nas configuracoes.'
       } else if (err.code == err.POSITION_UNAVAILABLE) {
-        msg += 'Sinal indisponivel. Tente em local aberto.'
+        lk.innerHTML = 'Sinal indisponivel. Tente em local aberto.'
       } else if (err.code == err.TIMEOUT) {
-        msg += 'Tempo esgotado. Tente novamente.'
+        lk.innerHTML = 'Tempo esgotado. Tente novamente.'
       } else {
-        msg += err.message
+        lk.innerHTML = err.message
       }
-      bx.innerHTML = msg
 
       btn.disabled = false
-      btn.innerHTML = 'Capturar Localizacao'
+      btn.textContent = 'Capturar Localizacao'
       capturando = false
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -290,16 +296,12 @@ function limparForm() {
   latitude = null
   longitude = null
 
-  var box = document.getElementById('boxGps')
-  box.className = 'box-gps'
-  box.innerHTML =
-    '<span class="coord-label">Latitude:</span> ' +
-    '<span class="coord-value" id="latDisplay">-</span><br>' +
-    '<span class="coord-label">Longitude:</span> ' +
-    '<span class="coord-value" id="lngDisplay">-</span>'
-
+  document.getElementById('latDisplay').textContent = '-'
+  document.getElementById('lngDisplay').textContent = '-'
+  document.getElementById('boxGps').className = 'box-gps'
+  document.getElementById('mapLinkContainer').innerHTML = ''
   document.getElementById('btnGps').disabled = false
-  document.getElementById('btnGps').innerHTML = 'Capturar Localizacao'
+  document.getElementById('btnGps').textContent = 'Capturar Localizacao'
   document.getElementById('msg').className = 'msg'
   document.getElementById('msg').style.display = 'none'
 }
