@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Cadastro Transporte Escolar</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -164,6 +165,7 @@ button:active{opacity:.8}
 <script>
 var SUPABASE_URL = "https://hqefobmvtojrwyoqgzak.supabase.co"
 var SUPABASE_KEY = "sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ"
+var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } })
 var latitude = null
 var longitude = null
 var capturando = false
@@ -238,7 +240,7 @@ function capturar() {
   )
 }
 
-function enviar() {
+async function enviar() {
   var responsavel = document.getElementById('responsavel').value.trim()
   var endereco = document.getElementById('endereco').value.trim()
   var aluno = document.getElementById('aluno').value.trim()
@@ -260,15 +262,8 @@ function enviar() {
   btn.disabled = true
   btn.textContent = 'Enviando...'
 
-  fetch(SUPABASE_URL + '/rest/v1/cadastro_transporte', {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify([{
+  try {
+    var result = await supabase.from('cadastro_transporte').insert([{
       responsavel: responsavel,
       endereco: endereco,
       aluno: aluno,
@@ -278,23 +273,19 @@ function enviar() {
       latitude: latitude,
       longitude: longitude
     }])
-  })
-  .then(function(r) {
-    if (!r.ok) {
-      return r.json().then(function(d) {
-        throw new Error(d.message || d.error || 'Erro ' + r.status)
-      })
+
+    if (result.error) {
+      mostrarMsg('Erro: ' + result.error.message, 'erro')
+    } else {
+      mostrarMsg('Registro enviado com sucesso!', 'sucesso')
+      limparForm()
     }
-    mostrarMsg('Registro enviado com sucesso!', 'sucesso')
-    limparForm()
-  })
-  .catch(function(e) {
-    mostrarMsg('Erro: ' + e.message, 'erro')
-  })
-  .finally(function() {
-    btn.disabled = false
-    btn.textContent = 'Enviar Registro'
-  })
+  } catch(e) {
+    mostrarMsg('Erro de conexao: ' + e.message, 'erro')
+  }
+
+  btn.disabled = false
+  btn.textContent = 'Enviar Registro'
 }
 
 function limparForm() {
