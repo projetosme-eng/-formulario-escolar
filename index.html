@@ -157,6 +157,10 @@ button:active{opacity:.8}
 
 </div>
 
+<div style="font-family:Arial;font-size:10px;text-align:center;color:#666;padding:10px 20px 20px;max-width:700px;margin:auto">
+  Desenvolvido pelo Departamento de Tecnologia da SME
+</div>
+
 <script>
 var SUPABASE_URL = "https://hqefobmvtojrwyoqgzak.supabase.co"
 var SUPABASE_KEY = "sb_publishable_graMCVLAAM5yDapKLKrAhw_JXX0xvlZ"
@@ -244,6 +248,11 @@ function enviar() {
 
   if (!responsavel || !endereco || !aluno || !escola || !ano || !rota) {
     mostrarMsg('Preencha todos os campos obrigatorios.', 'erro')
+    return
+  }
+
+  if (latitude == null) {
+    mostrarMsg('Capture a localizacao antes de enviar.', 'erro')
     return
   }
 
