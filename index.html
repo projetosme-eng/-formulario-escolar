@@ -247,11 +247,6 @@ function enviar() {
     return
   }
 
-  if (latitude == null) {
-    mostrarMsg('Capture a localizacao antes de enviar.', 'erro')
-    return
-  }
-
   var btn = document.getElementById('btnEnviar')
   btn.disabled = true
   btn.textContent = 'Enviando...'
